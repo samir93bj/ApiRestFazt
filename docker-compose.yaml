@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  taks-db:
+    image: postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminadmin
+      POSTGRES_DB: tasks
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
