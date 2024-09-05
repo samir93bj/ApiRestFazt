@@ -5,20 +5,23 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/samir93bj/go-gorm-restapi/commons"
 	"github.com/samir93bj/go-gorm-restapi/db"
 	"github.com/samir93bj/go-gorm-restapi/models"
+	"gorm.io/gorm"
 )
-
-type ErrorResponse struct {
-	ErrorMessage string `json:"error"`
-}
 
 func GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 	var users []models.User
 
-	db.DB.Find(&users)
+	result := db.DB.Find(&users)
 
-	json.NewEncoder(w).Encode(&users)
+	if result.Error != nil {
+		commons.WriteErrorResponse(w, http.StatusInternalServerError, "An error occurred while fetching users")
+		return
+	}
+
+	commons.WriteJSONResponse(w, http.StatusOK, users)
 }
 
 func GetUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -26,15 +29,19 @@ func GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	var user models.User
-	db.DB.First(&user, id)
+	result := db.DB.First(&user, id)
 
-	if user.ID == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ErrorResponse{ErrorMessage: "User not found"})
+	if result.Error == gorm.ErrRecordNotFound {
+		commons.WriteErrorResponse(w, http.StatusNotFound, "User not found")
 		return
 	}
 
-	json.NewEncoder(w).Encode(&user)
+	if result.Error != nil {
+		commons.WriteErrorResponse(w, http.StatusInternalServerError, "An error occurred while fetching user")
+		return
+	}
+
+	commons.WriteJSONResponse(w, http.StatusOK, user)
 }
 
 func PostUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -42,16 +49,44 @@ func PostUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&user)
 
+	result := db.DB.Where("email = ?", user.Email)
+
+	if result.Error == nil {
+		commons.WriteErrorResponse(w, http.StatusConflict, "Email already in use")
+		return
+	} else if result.Error != gorm.ErrRecordNotFound {
+		commons.WriteErrorResponse(w, http.StatusInternalServerError, "An error occurred while checking email")
+		return
+	}
+
 	createdUser := db.DB.Create(&user)
 
 	if createdUser.Error != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(createdUser.Error.Error()))
+		commons.WriteErrorResponse(w, http.StatusInternalServerError, "An error occurred while create user")
+		return
 	}
 
-	json.NewEncoder(w).Encode(&user)
+	commons.WriteJSONResponse(w, http.StatusCreated, user)
 }
 
 func DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Delete User Handler"))
+	var id = mux.Vars(r)["id"]
+
+	var user models.User
+
+	result := db.DB.First(&user, id)
+
+	if result.Error == gorm.ErrRecordNotFound {
+		commons.WriteErrorResponse(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	if result.Error != nil {
+		commons.WriteErrorResponse(w, http.StatusInternalServerError, "An error occurred while fetching user")
+		return
+	}
+
+	db.DB.Delete(&user)
+
+	commons.WriteJSONResponse(w, http.StatusOK, user)
 }
