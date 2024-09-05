@@ -41,20 +41,28 @@ func GetUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db.DB.Model(&user).Association("Tasks").Find(&user.Tasks)
+
 	commons.WriteJSONResponse(w, http.StatusOK, user)
 }
 
 func PostUserHandler(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 
-	json.NewDecoder(r.Body).Decode(&user)
+	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+		commons.WriteErrorResponse(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
 
-	result := db.DB.Where("email = ?", user.Email)
+	var existingUser models.User
+	result := db.DB.Where("email = ?", user.Email).First(&existingUser)
 
 	if result.Error == nil {
 		commons.WriteErrorResponse(w, http.StatusConflict, "Email already in use")
 		return
-	} else if result.Error != gorm.ErrRecordNotFound {
+	}
+
+	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		commons.WriteErrorResponse(w, http.StatusInternalServerError, "An error occurred while checking email")
 		return
 	}
@@ -62,7 +70,7 @@ func PostUserHandler(w http.ResponseWriter, r *http.Request) {
 	createdUser := db.DB.Create(&user)
 
 	if createdUser.Error != nil {
-		commons.WriteErrorResponse(w, http.StatusInternalServerError, "An error occurred while create user")
+		commons.WriteErrorResponse(w, http.StatusInternalServerError, "An error occurred while creating user")
 		return
 	}
 

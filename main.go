@@ -13,16 +13,23 @@ func main() {
 
 	db.DBconnection()
 	db.DB.AutoMigrate(models.User{})
-	db.DB.AutoMigrate(models.User{})
+	db.DB.AutoMigrate(models.Task{})
 
 	router := mux.NewRouter()
 
-	router.HandleFunc("/", routes.HomeHandler)
+	s := router.PathPrefix("/api").Subrouter()
 
-	router.HandleFunc("/users", routes.GetUsersHandler).Methods("GET")
-	router.HandleFunc("/users/{id}", routes.GetUserHandler).Methods("GET")
-	router.HandleFunc("/users/{id}", routes.DeleteUserHandler).Methods("DELETE")
-	router.HandleFunc("/users", routes.PostUserHandler).Methods("POST")
+	s.HandleFunc("/", routes.HomeHandler)
+
+	// tasks routes
+	s.HandleFunc("/tasks", routes.GetTasksHandler).Methods("GET")
+	s.HandleFunc("/tasks/{id}", routes.GetTaskHandler).Methods("GET")
+	s.HandleFunc("/tasks", routes.PostTaskHandler).Methods("POST")
+
+	s.HandleFunc("/users", routes.GetUsersHandler).Methods("GET")
+	s.HandleFunc("/users/{id}", routes.GetUserHandler).Methods("GET")
+	s.HandleFunc("/users/{id}", routes.DeleteUserHandler).Methods("DELETE")
+	s.HandleFunc("/users", routes.PostUserHandler).Methods("POST")
 
 	http.ListenAndServe(":8080", router)
 	println("Server started on port 8080")
